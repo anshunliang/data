@@ -25,6 +25,9 @@ global lp
 global nn
 global xp
 global hs
+global newsz
+
+newsz=[]   #用于保存间隔采样的数据    
 hs=0
 xp=[]
 nn=""
@@ -44,35 +47,37 @@ class Mythread(QThread):
         #  super(Mythread, self).__init__()
  
     def run(self):
-            #要定义的行为，比如开始一个活动什么的
-            print("start xc")
-            a=0
-            global xp
-            for j in range(len(xp)):
-                global nn
-                data = openpyxl.load_workbook("%s.xlsx" % nn)
-                # 取第一张表
-                sheetnames = data.get_sheet_names()
-                table = data.get_sheet_by_name(sheetnames[0])
-                table = data.active
-                nrows = table.max_row # 获得行数
-                ncolumns = table.max_column # 获得行数
+
+
+        #要定义的行为，比如开始一个活动什么的
+        print("start xc")
+        a=0
+        global xp
+        for j in range(len(xp)):
+            global nn
+            data = openpyxl.load_workbook("%s.xlsx" % nn)
+            # 取第一张表
+            sheetnames = data.get_sheet_names()
+            table = data.get_sheet_by_name(sheetnames[0])
+            table = data.active
+            nrows = table.max_row # 获得行数
+            ncolumns = table.max_column # 获得行数
             
-                aa=1
-                for i in xp[j]:
-                    table.cell(nrows+aa,1).value = i[0]
-                    table.cell(nrows+aa,2).value = i[1]
-                    aa+=1
-                aa=1
+            aa=1
+            for i in xp[j]:
+                table.cell(nrows+aa,1).value = i[0]
+                table.cell(nrows+aa,2).value = i[1]
+                aa+=1
+            aa=1
                 
-                data.save("%s.xlsx" % nn)
-                global lp
-                lp=str(float(j/len(xp)))
-                self.breakSignal.emit("进度%s" % j)
-            
-            lp="写入完成"
+            data.save("%s.xlsx" % nn)
+            global lp
+            lp=str(float(j/len(xp)))
             self.breakSignal.emit("进度%s" % j)
-            #replyp = QMessageBox.question(self, '提示', '数据保存完成', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            
+        lp="写入完成"
+        self.breakSignal.emit("进度%s" % j)
+        #replyp = QMessageBox.question(self, '提示', '数据保存完成', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 class Example(QMainWindow):
     
 
@@ -82,7 +87,7 @@ class Example(QMainWindow):
 
     def initUI(self):
         self.resize(1000, 500)
-        self.setWindowTitle('数据后处理')
+        self.setWindowTitle('春风不度玉门关')
 
         exitAction = QAction(QIcon('exit.png'), '&退出', self)       
         exitAction.setShortcut('Ctrl+Q')
@@ -231,29 +236,39 @@ class Example(QMainWindow):
         self.start.setGeometry(850,120,130,25)
         self.start.clicked.connect(self.sc)
 
-
+        #用于展示读取到的数据,布尔量
+        self.test1 = QLabel(self)
+        self.test1.setGeometry(20, 240, 960, 50)
+        self.test1.setWordWrap(True)
+        #self.test.setStyleSheet("background-color:green")
+        self.test1.setStyleSheet("font: bold; font-size:30px;background-color: gray")
         
         #开始读取按钮
         self.start = QPushButton(self)
-        self.start.setText("读取并保存")         #按钮文本
+        self.start.setText("读取保存")         #按钮文本
         self.start.move(80,250)                   #按钮位s置
         self.start.clicked.connect(self.dq)
 
-
+        #用于展示读取到的数据,布尔量
+        self.test2 = QLabel(self)
+        self.test2.setGeometry(20, 300, 960, 50)
+        self.test2.setWordWrap(True)
+        #self.test.setStyleSheet("background-color:green")
+        self.test2.setStyleSheet("font: bold; font-size:30px;background-color: gray")
 
         #设置采样间隔
         self.jg=QLabel(self)
-        self.jg.setGeometry(280,255,200,20)
+        self.jg.setGeometry(80,315,200,20)
         self.jg.setText("采样间隔:")
         #结束时间输入输入框
         self.jg1=QLineEdit(self)
         #self.time1.setPlaceholderText("请输入要查询的内容")
-        self.jg1.setGeometry(380,255,100,20)
+        self.jg1.setGeometry(180,315,100,20)
         self.jg1.setText("4")
         #计算数据行数
         self.jg2 = QPushButton(self)
-        self.jg2.setText("确定")         #按钮文本
-        self.jg2.setGeometry(500,255,80,25)
+        self.jg2.setText("计算行数")         #按钮文本
+        self.jg2.setGeometry(300,315,120,25)
         self.jg2.clicked.connect(self.jss)
 
 
@@ -265,8 +280,15 @@ class Example(QMainWindow):
 
         #设置采样间隔
         self.jd=QLabel(self)
-        self.jd.setGeometry(80,355,200,20)
+        self.jd.setGeometry(450,315,200,20)
         self.jd.setText("temp")
+
+
+        #根据采样间隔来保存数据
+        self.bcc = QPushButton(self)
+        self.bcc.setText("保存数据")         #按钮文本
+        self.bcc.move(750,310)                   #按钮位s置
+        self.bcc.clicked.connect(self.bc1)
  
 
         '''
@@ -285,11 +307,84 @@ class Example(QMainWindow):
     
     #计算数据行数
     def jss(self):
-        zxc=self.jg1.text()
-        zxcc=int(zxc)
+        client = InfluxDBClient(self.ip1.text(), self.dk1.text(),self.name1.text(),self.mima1.text(),database=self.t1.currentText(),timeout =1,retries=2)
+        #获取sql输入框的值 
+        pp=self.t99.toPlainText()
+        temp=pd.DataFrame(client.query(pp).get_points())
+        x=temp.values.tolist()
+        
+        #计算获取的数据行数
         global hs
-        #str(int(hs/zxcc))
-        self.jd.setText(str(int(hs/zxcc)))
+        hs=len(x)
+        print("原始数据"+str(hs))
+        zxc=self.jg1.text()
+        
+        zxcc=int(zxc)
+        #计算行数
+        zxccc=zxcc+1
+        pkk=int(hs/zxccc)
+
+        if zxc=="0":
+            self.jd.setText("待写入总行数："+str(hs)+"行")
+        else:
+            self.jd.setText("待写入总行数："+str(pkk)+"行")
+
+        
+        global newsz
+        newsz=x
+    
+    #设置间隔后写入
+    def bc1(self):
+        #获取采样间隔值
+        zxc=self.jg1.text()
+    
+        global newsz
+        pk=0
+        j=0
+        newxp=[]  #临时变量
+        for i in newsz:
+            if j%(int(zxc)+1)==0:
+                newxp.append(i)
+            j+=1
+        newsz.clear()
+        #将x分割位多个小数组，每个数组10000个数据
+        global xp
+        print(len(newxp))
+        xp=list_split(newxp, 10000)
+       
+        
+        wb = Workbook()
+        # 激活 worksheet
+        ws = wb.active
+        # 数据可以直接分配到单元格中
+        ws['A1'] = "实验"
+        # 可以附加行，从第一列开始附加
+        ws.append(["时间"," 测量值", "工位号"])
+        # Python 类型会被自动转换
+        #文件名
+
+        wb = Workbook()
+        # 激活 worksheet
+        ws = wb.active
+        # 数据可以直接分配到单元格中
+        ws['A1'] = "实验"
+        # 可以附加行，从第一列开始附加
+        ws.append(["时间"," 测量值", "工位号"])
+        # Python 类型会被自动转换
+        #文件名
+        global nn
+        nn=self.gwh1.text()
+        
+        wb.save("%s.xlsx" % nn)
+        print("hello")
+        # 创建线程
+        thread = Mythread()
+        # # 注册信号处理函数
+        thread.breakSignal.connect(chuli)
+        # # 启动线程
+        thread.start()
+        reply = QMessageBox.question(self, '提示', '数据正在保存，请耐性等待', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
     
     
     #测试函数
@@ -382,7 +477,7 @@ class Example(QMainWindow):
         global hs
         hs=len(x)
 
-
+        #将x分割位多个小数组，每个数组10000个数据
         global xp
         xp=list_split(x, 10000)
         #print(xp)
@@ -399,13 +494,8 @@ class Example(QMainWindow):
         global nn
         nn=self.gwh1.text()
         
-
         wb.save("%s.xlsx" % nn)
-        print("long")
 
-
-        
- 
         # 创建线程
         thread = Mythread()
         # # 注册信号处理函数
@@ -482,7 +572,6 @@ class Example(QMainWindow):
         
         y_smooth = make_interp_spline(x, y)(x_smooth)
         plt.plot(x_smooth, y_smooth)
-        print("jjjj")
         plt.show()
         
         #折线图
